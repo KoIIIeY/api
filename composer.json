@@ -1,0 +1,13 @@
+{
+    "name": "koiiiey/api",
+    "description": "Laravel REST API",
+    "license": "MIT",
+    "version": "0.0.1",
+    "require": {},
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4":{
+            "Koiiiey\\Api\\": "/src"
+        }
+    }
+}
