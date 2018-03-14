@@ -124,11 +124,6 @@ class EntityController extends \Illuminate\Routing\Controller
     public function store(Request $request, $model)
     {
         $data = $request->all();
-        foreach ($data as $field => $value) {
-            if (is_object($value)) {
-                unset($data[$field]);
-            }
-        }
 
         /**
          * @var \Illuminate\Database\Eloquent\Model $entity
@@ -149,8 +144,6 @@ class EntityController extends \Illuminate\Routing\Controller
         }
 
         try {
-
-            $model->fill($data);
             $save = $model->save();
             $model = $model->fresh();
 
