@@ -55,12 +55,7 @@ Create entity
 ==
 
 example: 
-
-attrs[a] = 1
-
-attrs[b] = 2
-
-attrs[c] = [a => 1, b => 2] <<-- relation C saved in one request with host entity
+{a: 1, b: 2, c: {v: 5, n:6}} <-- here C is related in model
 
 Get one entity
 --------------
