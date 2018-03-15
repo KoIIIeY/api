@@ -51,6 +51,17 @@ Create entity
 - params entity_attributes
 - return {created entity json}
 
+
+==
+
+example: 
+
+attrs[a] = 1
+
+attrs[b] = 2
+
+attrs[c] = [a => 1, b => 2] <<-- relation C saved in one request with host entity
+
 Get one entity
 --------------
 - method get
