@@ -13,12 +13,11 @@ class Logs extends Migration
      */
     public function up()
     {
-        // Логи
         Schema::create('logs', function (Blueprint $table) {
             $table->increments('log_id');
             $table->integer('user_id')->nullable();
-            $table->integer('user_ip')->nullable();
-            $table->integer('user_agent')->nullable();
+            $table->string('user_ip')->nullable();
+            $table->text('user_agent')->nullable();
             $table->string('method');
             $table->string('model');
             $table->text('message')->nullable();

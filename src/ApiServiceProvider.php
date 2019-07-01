@@ -23,7 +23,15 @@ class ApiServiceProvider extends ServiceProvider
 
         $this->publishes([
             __DIR__.'/Models' => app_path()
-        ], 'guestFile');
+        ], 'models');
+
+        $this->publishes([
+            __DIR__.'/Support' => app_path()
+        ], 'support');
+
+        $this->publishes([
+            __DIR__.'/Policies' => app_path()
+        ], 'policies');
 
         $this->publishes([
             __DIR__.'/database/migrations/' => database_path('migrations')

@@ -2,23 +2,26 @@
 
 namespace Koiiiey\Api\Http\Controllers\Api;
 
-use App\Account;
+use App\Token;
 use App\User;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Requests;
+use Illuminate\Routing\Controller;
+use Illuminate\Routing\Route;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Support\Facades\Auth;
+
+use Laravel\Socialite\Facades\Socialite;
 
 /**
  * Class AuthController
  * @package App\Http\Controllers
  */
-class AuthController extends \Illuminate\Routing\Controller
+class AuthController extends Controller
 {
-
-    use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-
     /**
      * AuthController constructor.
      */
@@ -33,37 +36,21 @@ class AuthController extends \Illuminate\Routing\Controller
      */
     public function postRegister(Request $request)
     {
-        $user = new User();
-
         $data = $request->all();
 
+        if(!isset($data['email']) || User::where('email', '=', $data['email'])->first()){
+            return new JsonResponse(['email' => ['Емэйл уже занят']], 422);
+        }
+
+        $user = new User();
         $user->fill($data);
         $user->save();
 
+        $token = Token::createApiToken($user->user_id);
+
         \App\Log::out('timeline', 'user', null, $user ? $user->user_id : null, 'Регистрация на сайте');
 
-
-        //// КОДЫ ПОДТВЕРЖДЕНИЯ ЕМЭЙЛ И ТЕЛЕФОН
-        //        \App\Email::sendEmail($user->email, 'Код подтверждения емэйл', 'Ваш код подтвержения - ' . substr(md5(($user->email . $user->user_id)), 0 , 5));
-
-        //        if(env('SEND_EMAIL')){
-        //            \App\Email::sendVerifyEmail($user);
-        //
-        //            $sms = new \App\Sms();
-        //            $sms->to = $user->phone;
-        //            $sms->user_id = $user->user_id;
-        //            $sms->message = 'Код: '. substr(md5(($user->phone . $user->user_id)), 0, 5);
-        //            $sms->save();
-        //
-        //        }
-        ////
-
-        return new JsonResponse(['api_token' => $user->api_token]);
-    }
-
-    public function checkToken(){
-        $token = \App\User::where('api_token', '=', \Request::input('token'))->count();
-        return response()->json(['verified' => $token ? true : false]);
+        return new JsonResponse(['api_token' => $token->api_token]);
     }
 
     /**
@@ -72,19 +59,41 @@ class AuthController extends \Illuminate\Routing\Controller
      */
     public function postLogin(Request $request)
     {
-        $this->validate($request, [
-            'email' => 'required',
-            'password' => 'required',
-        ]);
-        session()->flush();
+//        $this->validate($request, [
+//            'email' => 'required',
+//            'password' => 'required'
+//        ]);
         $credentials = $request->only('email', 'password');
 
         if (!auth('web')->attempt($credentials)) {
-            return new JsonResponse(['message' => ['Неверный логин или пароль']], 401);
+            return new JsonResponse(['email' => ['Неверный email или пароль']], 401);
         }
         $user = auth('web')->user();
 
-        return new JsonResponse(['api_token' => $user->api_token]);
+        $token = Token::createApiToken($user->user_id);
+
+        return new JsonResponse(['api_token' => $token->api_token]);
+    }
+
+
+
+    public function getLogout(Request $request)
+    {
+        $api_token = '';
+
+        if (isset(\Request::all()['api_token'])) {
+            $api_token = \Request::all()['api_token'];
+        }
+
+        if (\Request::bearerToken()) {
+            $api_token = \Request::bearerToken();
+        }
+
+        if ($api_token == '') {
+            return;
+        }
+
+        Token::where('api_token', $api_token)->delete();
     }
 
     /**
@@ -93,248 +102,41 @@ class AuthController extends \Illuminate\Routing\Controller
      */
     public function getCurrent(Request $request)
     {
-        $user_id = auth()->id();
+        $data = $request->all();
+        $api_token = '';
+        $ec = new EntityController();
 
-        if ($user_id) {
-            $user = auth()->user();
-
-            $globalPermissions = [];
-
-            $userRoleReferences =
-                \App\UserRole::withoutGlobalScopes()
-                ->where('user_id', '=', $user->user_id)
-                ->get();
-
-            $userRoles = [];
-            if (count($userRoleReferences))
-            {
-                $roles = \App\Role::withoutGlobalScopes()
-                    ->whereIn('role_id', $userRoleReferences->pluck('role_id'))
-                    ->with('parent')
-                    ->get();
-                $userRoles = $roles->toArray();
+        if (!Auth::user()) {
+            if (isset($data['api_token'])) {
+                $api_token = $data['api_token'];
             }
 
-            foreach ($userRoles as $userRole)
-            {
-                $currentRole = $userRole;
+            if (!isset($data['api_token'])) {
+                $api_token = $request->bearerToken();
+            }
 
-                while($currentRole)
-                {
-                    $permissions =
-                        \App\RolePermission::withoutGlobalScopes()
-                            ->where('role_id', '=', $currentRole['role_id'])
-                            ->get();
+            if ($api_token != '') {
+                $token = Token::where('api_token', $api_token)->first();
+                if ($token) {
+                    $token->updated_at = Carbon::now();
+                    $token->save();
 
-                    foreach ($permissions as $permission)
-                    {
-                        $entity = $permission->entity;
-                        $permission = collect($permission)->toArray();
-
-                        if (!isset($globalPermissions[$entity]))
-                        {
-                            $globalPermissions[$entity] = $permission;
-                        }
-                        else
-                        {
-                            foreach ($permission as $key => $value)
-                            {
-                                if (!isset($globalPermissions[$entity][$key]) ||
-                                    $globalPermissions[$entity][$key] == 'inherit' &&
-                                    ($value == 'allow' || $value == 'deny'))
-                                {
-                                    $globalPermissions[$entity][$key] = $value;
-                                }
-                            }
-                        }
-                    }
-
-                    if ($currentRole['parent_role_id'] == 0)
-                    {
-                        break;
-                    }
-
-                    $parentRole = \App\Role::withoutGlobalScopes()
-                        ->where('role_id', '=', $currentRole['parent_role_id'])
-                        ->first();
-                    $parentRole = collect($parentRole)->toArray();
-                    if ($parentRole['role_id'] == $currentRole['role_id'])
-                    {
-                        $currentRole = null;
-                        continue;
-                    }
-                    $currentRole = $parentRole;
+                    $user = $ec->show($request, '\App\User', $token->user_id);
+                    return $user;
                 }
-            }
-
-            $userPermissions =
-                \App\UserEntityPermission::withoutGlobalScopes()
-                ->where('user_id', '=', $user->user_id)
-                ->get();
-
-            foreach ($userPermissions as $userPermission)
-            {
-                $entity = $userPermission->entity;
-                $userPermission = collect($userPermission)->toArray();
-
-                if (!isset($globalPermissions[$entity]))
-                {
-                    $globalPermissions[$entity] = $userPermission;
-                }
-                else
-                {
-                    foreach ($userPermission as $key => $value)
-                    {
-                        if ($value == 'allow' || $value == 'deny')
-                        {
-                            $globalPermissions[$entity][$key] = $value;
-                        }
-                    }
-                }
-            }
-
-            $canAdmin = false;
-
-            foreach ($globalPermissions as $permission)
-            {
-                if ($permission['admin'])
-                {
-                    $canAdmin = true;
-                    break;
-                }
-            }
-
-            $user->globalPermissions = $globalPermissions;
-            $user->canAdmin = $canAdmin;
-            $user->roles = $userRoles;
-
-            $selectedRole = request()->selectedRole;
-
-            if ($selectedRole != null)
-            {
-                foreach ($userRoles as $userRole)
-                {
-                    if ($userRole['role_id'] == intval($selectedRole))
-                    {
-                        session(['selectedRole' => $selectedRole]);
-                        break;
-                    }
-                }
-                if (intval($selectedRole) == 0)
-                {
-                    session(['selectedRole' => $selectedRole]);
-                }
-            }
-
-            if (session('selectedRole') != null)
-            {
-                $user->selectedRole = session('selectedRole');
-            }
-            else if (count($userRoles) > 1)
-            {
-                $selectedRole = strval($userRoles[0]['role_id']);
-                $user->selectedRole = $selectedRole;
-                session(['selectedRole' => $selectedRole]);
-            }
-
-            return response()->json($user);
-        } else {
-            $user = (new User())->newQuery()->where('user_id', $user_id);
-
-            $with = $request->get('with', []);
-
-            if (is_array($with)) {
-                foreach ($with as $relation) {
-                    $user->with($relation);
-                }
-            }
-            $user = $user->first();
-
-            if (!$user) {
-                return new JsonResponse([], 401);
-                //                return new JsonResponse(null);
             }
         }
 
-        return new JsonResponse($user, 200, [], JSON_NUMERIC_CHECK);
-    }
-
-    /**
-     * @param Request $request
-     * @param string $provider
-     * @return JsonResponse
-     */
-    public function postSocial(Request $request, $provider)
-    {
-        $config = config('services.' . $provider);
-
-        if (!$config || !array_key_exists('client_id', $config) || $request->get('clientId') != $config['client_id']) {
-            abort(404, 'Invalid service configuration, check config for service: ' . $provider);
-        }
-        $request->merge(['state' => 'socialite_fix']);
-        $request->session()->put('state', 'socialite_fix');
-
-        /**
-         * @var \Laravel\Socialite\Contracts\User $providerUser
-         */
-        $providerUser = Socialite::driver($provider)->user();
-
-        if (!$providerUser) {
-            abort(400);
-        }
-        /**
-         * @var User|null $existsUser
-         */
-        $existsUser = User::whereSocial($provider, $providerUser->getId())->first();
-
-        if ($existsUser) {
-            $existsUser->updateApiToken(true);
-            return new JsonResponse(['api_token' => $existsUser->api_token]);
-        }
-        $data = array_reduce(['id', 'nickname', 'avatar', 'email', 'name'], function ($result, $v) use ($providerUser) {
-            $result[$v] = call_user_func([$providerUser, 'get' . studly_case($v)]);
-            return $result;
-        }, []);
-
-        if ($data['avatar']) {
-            $destPath = 'uploads/images';
-            $ext = /*last(explode('.', head(explode('?', $data['avatar'])))) ?:*/
-                'jpg'; // todo: remove hardcode
-
-            do {
-                $filename = str_random(20) . '.' . $ext;
-                $path = implode('/', [$destPath, $filename]);
-            } while (file_exists(public_path($path)));
-
-            file_put_contents(public_path($path), file_get_contents($data['avatar']));
-            $data['avatar'] = $path;
-        }
-        list($firstname, $lastname) = explode(' ', $data['name']);
-
-        if (!$data['nickname']) {
-            $data['nickname'] = $data['id'];
-        }
-        while (User::where('username', $data['nickname'])->count()) {
-            $data['nickname'] .= '_' . rand(100, 999);
+        if (Auth::check() && Auth::user()) {
+            $user = $ec->show($request, '\App\User', Auth::user()->user_id);
+            return $user;
         }
 
-        $user = new User();
-        $user->fill([
-            'username' => $data['nickname'],
-            'avatar' => $data['avatar'],
-            'firstname' => $firstname,
-            'lastname' => $lastname,
-        ]);
-        $user->social_type = $provider;
-        $user->social_id = $data['id'];
-        $user->save();
-
-        return new JsonResponse(['api_token' => $user->api_token], 200, [], JSON_NUMERIC_CHECK);
+        return new JsonResponse([], 401);
     }
 
     public function postMail(Request $request)
     {
-
         $this->validate($request, [
             'email' => 'required|email'
         ]);
@@ -421,5 +223,52 @@ class AuthController extends \Illuminate\Routing\Controller
         }
         return response()->json(['messages' => ['Произошла ошибка']]);
     }
+
+
+    public static function goToSoc($type){
+        return Socialite::with($type)->stateless()->redirect();
+    }
+
+    public static function social($type = null)
+    {
+//        dd(Socialite::with($type)->stateless()->user());
+        try {
+            $u = Socialite::with($type)->stateless()->user();
+            \Cache::put('user-'.$type.\Request::input('code'), $u, 1);
+        } catch(\Exception $e){
+            $u = \Cache::pull('user-'.$type.\Request::input('code'));
+        }
+        if(!$u){
+            return redirect('/');
+        }
+//        dd($u);
+
+        $email = '';
+        try {
+            $email = $u->getEmail();
+        } catch(\Exception $e){
+
+        }
+
+        if(!$email){
+            $email = $u->accessTokenResponseBody['email'] ?? '';
+        }
+
+        if($user = \App\User::where($type.'_id', '=', $u->getId())->first()){
+            $token = Token::createApiToken($user->user_id);
+            return redirect('/login/'.$token->api_token);
+        } else {
+            $user = new User();
+            $user->email = $email;
+            $user->{$type.'_id'} = $u->getId();
+            $user->save();
+
+            $token = Token::createApiToken($user->user_id);
+
+            \App\Log::out('timeline', 'user', null, $user ? $user->user_id : null, 'Регистрация на сайте');
+            return redirect('/login/'.$token->api_token);
+        }
+    }
+
 
 }
