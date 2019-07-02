@@ -26,11 +26,11 @@ class ApiServiceProvider extends ServiceProvider
         ], 'models');
 
         $this->publishes([
-            __DIR__.'/Support' => app_path()
+            __DIR__.'/Support' => app_path('Support')
         ], 'support');
 
         $this->publishes([
-            __DIR__.'/Policies' => app_path()
+            __DIR__.'/Policies' => app_path('Policies')
         ], 'policies');
 
         $this->publishes([
