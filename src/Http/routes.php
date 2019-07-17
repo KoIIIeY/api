@@ -11,7 +11,7 @@
 |
 */
 
-Route::get('cache/storage/files/{image}/{width?}', 'Api\AdditionalController@resizeImage');
+Route::get('cache/storage/files/{image}/{width?}', '\Koiiiey\Api\Http\Controllers\Api\AdditionalController@resizeImage');
 
 
 Route::group(['prefix' => 'api/v1', 'namespace' => 'Api', 'middleware' => ['api']], function () {
