@@ -46,6 +46,8 @@ class EntityController extends Controller
         $per_page = $request->get('per_page', 30);
         $order = $request->get('order', []);
         $count = $request->get('count', false);
+        $appends = json_decode($request->get('appends', false), true);
+
 
         $with = json_decode($with);
         $withCount = json_decode($withCount);
@@ -171,6 +173,12 @@ class EntityController extends Controller
 
         $paginator = $query->paginate($per_page);
         $paginator->appends($request->except('page'));
+
+        if($appends){
+            foreach ($paginator->items() as &$item) {
+                $item->setAppends($appends);
+            }
+        }
 
 //        foreach ($paginator->items() as $item) {
 //            $this->authorize('read', $item);
