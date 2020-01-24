@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Database\Eloquent\Model;
 use App\Log;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Illuminate\Http\RedirectResponse;
 
 /**
  * Class ApiController
@@ -322,7 +324,7 @@ class EntityController extends Controller
             $s = $entity->save();
             $entity = $entity->fresh();
         } catch (\Exception $e) {
-            return response()->json(['error' => [$e->getMessage()]], 422);
+            return response()->json(['error' => [$e->getMessage(), 'trace' => $e->getTraceAsString()]], 422);
         }
 
         if (is_array($with) && !empty($with)) {
@@ -359,8 +361,9 @@ class EntityController extends Controller
 
     public function call(Request $request, $model, $method){
         $response = $model::$method($request);
+//        dd($response);
 
-        if($response instanceof JsonResponse){
+        if($response instanceof JsonResponse || $response instanceof BinaryFileResponse || $response instanceof RedirectResponse){
             return $response;
         }
         return new JsonResponse($response, 200, [], JSON_NUMERIC_CHECK);
