@@ -67,12 +67,12 @@ Route::group(['prefix' => 'api/v1', 'namespace' => 'Api', 'middleware' => ['api'
 
 Route::group(['middleware' => ['web']], function () {
     Route::get('/admin/{a?}', function () {
-        return file_get_contents(public_path('/ng-admin/index.html'));
+        return file_get_contents(config('view.admin_path', public_path('/ng-admin/index.html')));
     })->where('a', '.*');
 });
 
 Route::group(['middleware' => ['web']], function () {
     Route::get('/{a}', function () {
-        return file_get_contents(public_path('/index.html'));
+        return file_get_contents(config('view.angular_path', public_path('/ng-admin/index.html')));
     })->where('a', '.*');
 });
