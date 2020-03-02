@@ -39,7 +39,7 @@ class AuthController extends Controller
         $data = $request->all();
 
         if(!isset($data['email']) || User::where('email', '=', $data['email'])->first()){
-            return new JsonResponse(['email' => ['Емэйл уже занят']], 422);
+            return new JsonResponse(['email' => [trans('model.already_email')]], 422);
         }
 
         $user = new User();
