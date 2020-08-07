@@ -82,6 +82,9 @@ if (!function_exists('apply_query_scopes'))
 	{
 		foreach ($scopes as $key => $value2){
 			$value = explode(',', $value2, 2);
+			if(mb_strtolower($value) === 'withoutGlobalScopes'){
+			    continue;
+            }
 
 			$method = new ReflectionMethod(get_class($query->getModel()), 'scope'.ucfirst($value[0]));
 			$count = $method->getNumberOfParameters();
