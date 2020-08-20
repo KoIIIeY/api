@@ -143,16 +143,20 @@ class AdditionalController extends Controller
         $trans = [];
 
 
-        //		$trans['forModel'] = trans('model.table.'.$forModel);
-        $trans[$model->primaryKey] = trans('model.' . $model->primaryKey);
-
-        $fields = $model->getFillable();
+//        //		$trans['forModel'] = trans('model.table.'.$forModel);
+//        $trans[$model->primaryKey] = trans('model.' . $model->primaryKey);
+//
+//        $fields = $model->getFillable();
+        $fields = [];
+        $fields[] = $model->primaryKey;
+        $fields = array_merge($fields, $model->getFillable());
 
         if ($model->readonly) {
             $fields = array_merge($fields, $model->readonly);
             $fields = array_unique($fields);
         }
 
+        // translate
         foreach ($fields as $field) {
 
             if (\Lang::has('model.' . $forModel . '.' . $field)) {
