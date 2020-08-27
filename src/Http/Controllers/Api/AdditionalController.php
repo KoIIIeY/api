@@ -48,8 +48,13 @@ class AdditionalController extends Controller
         $fields[] = $model->primaryKey;
         $fields = array_merge($fields, $model->getFillable());
 
-        if ($model->readonly) {
-            $fields = array_merge($fields, $model->readonly);
+//        if ($model->readonly) {
+//            $fields = array_merge($fields, $model->readonly);
+//            $fields = array_unique($fields);
+//        }
+
+        if ($model->adminData && is_array($model->adminData) && isset($model->adminData['readonly'])) {
+            $fields = array_merge($fields, $model->adminData['readonly']);
             $fields = array_unique($fields);
         }
 
@@ -67,26 +72,25 @@ class AdditionalController extends Controller
         }
 
 
-
         // types
         foreach ($fields as $field) {
             try {
                 $full[$field]['type'] = \DB::connection()->getDoctrineColumn($model->getTable(), $field)->getType()->getName();
             } catch (\Exception $e) {
-                if ($model->fieldType && is_array($model->fieldType)) {
-                    $full[$field]['type'] = $model->fieldType[$field];
+                if ($model->adminData && isset($model->adminData['types']) && is_array($model->adminData['types'])) {
+                    $full[$field]['type'] = $model->adminData['types'][$field];
                 } else {
-                    $full[$field]['type'] = isset($model->readonly[$field]) ? 'readonly' : 'string';
+                    $full[$field]['type'] = isset($model->adminData['types'][$field]) ? 'readonly' : 'string';
                 }
             }
         }
 
-        if ($model->adminWith) {
+        if ($model->adminData && isset($model->adminData['relations'])) {
             if (!is_array($model->with)) {
                 $model->with = [];
             }
 
-            $model->with = array_merge($model->with, $model->adminWith);
+            $model->with = array_merge($model->with, $model->adminData['relations']);
             $model->with = array_unique($model->with);
         }
         // relation:{Model}:{foreign_key}:{with}
@@ -101,9 +105,10 @@ class AdditionalController extends Controller
                     continue;
                 }
                 $field = str_replace($model->getTable() . '.', '', $model->$with()->getQualifiedParentKeyName());
+
                 $readonly = false;
-                if ($model->readonly) {
-                    $readonly = in_array($field, $model->readonly);
+                if ($model->adminData && isset($model->adminData['readonly'])) {
+                    $readonly = in_array($field, $model->adminData['readonly']);
                 }
                 $full[$field]['type'] = ($readonly ? 'readonly:' : 'relation:') . (str_replace('App\\', '', get_class($model->$with()->getRelated()))) . ':' . $model->$with()->getForeignKeyName() . ':' . $with;
             }
@@ -132,6 +137,14 @@ class AdditionalController extends Controller
         }
 
         return response()->json($full, 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function getPrimaryKey($model)
+    {
+        $model = ucfirst($model);
+        $model = new $model;
+
+        return response()->json($model->primaryKey, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function getModel($model)

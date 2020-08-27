@@ -24,6 +24,8 @@ Route::group(['prefix' => 'api/v1', 'namespace' => 'Api', 'middleware' => ['api'
 
     Route::get('/full/{model}', '\Koiiiey\Api\Http\Controllers\Api\AdditionalController@getFullModel');
 
+    Route::get('/primaryKey/{model}', '\Koiiiey\Api\Http\Controllers\Api\AdditionalController@getPrimaryKey');
+
     Route::any('/call/{model}/{method}/{params?}', '\Koiiiey\Api\Http\Controllers\Api\EntityController@call');
 
     Route::post('/auth/register', '\Koiiiey\Api\Http\Controllers\Api\AuthController@postRegister');
