@@ -12,6 +12,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
 
 /**
@@ -110,7 +111,7 @@ class AdditionalController extends Controller
                 if ($model->adminData && isset($model->adminData['readonly'])) {
                     $readonly = in_array($field, $model->adminData['readonly']);
                 }
-                $full[$field]['type'] = ($readonly ? 'readonly:' : 'relation:') . (str_replace('App\\', '', get_class($model->$with()->getRelated()))) . ':' . $model->$with()->getForeignKeyName() . ':' . $with;
+                $full[$field]['type'] = ($readonly ? 'readonly:' : 'relation:') . Str::snake(str_replace('App\\', '', get_class($model->$with()->getRelated()))) . ':' . $model->$with()->getForeignKeyName() . ':' . $with;
             }
         }
 
