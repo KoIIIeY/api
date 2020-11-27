@@ -218,6 +218,8 @@ class EntityController extends Controller
         if (is_array($withCount) && !empty($withCount)) {
             $query->withCount($withCount);
         }
+        
+        $appends = json_decode($request->get('appends', false), true);
 
         $entity = $query->find($model_id);
 //        dd($entity);
@@ -230,6 +232,10 @@ class EntityController extends Controller
 //        }
 
 //        Visibility::authorize($model, 'read', $entity);
+        
+        if(is_array($appends)){
+            $entity->setAppends($appends);
+        }
 
         Log::out('show', $model, $request->all());
 
