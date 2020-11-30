@@ -288,7 +288,12 @@ class EntityController extends Controller
             }
 
         } catch (\Exception $e) {
-            return response()->json(['error' => [$e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString()]], 422);
+            if(config('app.debug')){
+                return response()->json(['error' => [$e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString()]], 422);
+            } else {
+                return response()->json(['error' => [$e->getMessage()]], 422);
+            }
+
         }
 
 
@@ -330,7 +335,11 @@ class EntityController extends Controller
             $s = $entity->save();
             $entity = $entity->fresh();
         } catch (\Exception $e) {
-            return response()->json(['error' => [$e->getMessage(), 'trace' => $e->getTraceAsString()]], 422);
+            if(config('app.debug')) {
+                return response()->json(['error' => [$e->getMessage(), 'trace' => $e->getTraceAsString()]], 422);
+            } else {
+                return response()->json(['error' => [$e->getMessage()]], 422);
+            }
         }
 
         if (is_array($with) && !empty($with)) {
